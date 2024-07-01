@@ -6,14 +6,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from pennylane import qml
 
 from Datacompiler import generate_compiler
 from utils import *
-from train_test import test
-from train_test import train
+from train_test import train_print
 from SparsifiedDataset import QuantumDataset
-from SQNN import SQNN
+from VHN_conv_net import ATR
 
 device = (
     "cuda"
@@ -25,12 +23,10 @@ device = (
 
 CLOUD = False
 LINUX = False
-HARDSTOP = float('inf') # how many imgs to use. 2 * HARDSTOP, balanced
-HARDSTOP_TST = float('inf')
-IMB_RAT = 2
-BATCH_SIZE = 4 # MAKE SURE BATCH_SIZE ARE FACTORS OF HARDSTOP_TST AND HARDSTO
-QUBIT = "lightning.qubit" 
-WIRES = 8
+HARDSTOP = 500 # how many imgs to use. 2 * HARDSTOP, balanced
+HARDSTOP_TST = 120
+IMB_RAT = 1
+BATCH_SIZE = 20 # MAKE SURE BATCH_SIZE ARE FACTORS OF HARDSTOP_TST AND HARDSTO
 # if not LINUX else "lightning.gpu"
 path_trn = ""
 path_tst = ""
@@ -40,7 +36,7 @@ path_vhn_sv = ""
 path_vhn_sv_wghts = ""
 path_reg_sv = ""
 ROOT = ""
-SAVE_PATH = "/Users/chrissu/Desktop/research_data/sqnn_data"  # Data saving folder
+SAVE_PATH = "/Users/chrissu/Desktop/research_data/classical_data/"  # Data saving folder
 if CLOUD:
     path_trn = '/data/sjayasur/greg_data/train/'
     path_tst = '/data/sjayasur/greg_data/test/'
@@ -64,19 +60,6 @@ else:
     path_vhn_sv = './saves/res_vhn.txt'
     path_reg_sv = './saves/res_reg.txt'
 
-wghts = np.load(path_vhn_sv_wghts)
-
-# dldr_trn_reg, dldr_tst_reg = copy.deepcopy(dldr_trn), copy.deepcopy(dldr_tst)
-
-n_layers = 1   # Number of random layers
-
-np.random.seed(0)           # Seed for NumPy random number generator
-tf.random.set_seed(0)       # Seed for TensorFlow random number generator
-
-#creates iters datasets with skip filters
-_rand_params = np.random.uniform(high=2 * np.pi, size=(n_layers, WIRES))
-np.save(SAVE_PATH + "params", _rand_params)
-
 def create_lists(path, path_hdf, BZ, IR, HARDSTOP):
     dldr = generate_compiler(data_root = path, \
                 hdf_data_path = path_hdf, \
@@ -94,7 +77,8 @@ def create_lists(path, path_hdf, BZ, IR, HARDSTOP):
 
             if HARDSTOP != float('inf'):
                 
-                print(f"Loaded {i+1} elt(s)")
+                if i%50 == 0:
+                    print(f"Loaded {i+50} elt(s)")
             
             else:
                 
@@ -103,7 +87,7 @@ def create_lists(path, path_hdf, BZ, IR, HARDSTOP):
 
 
             inputs = torch.log10(torch.tensor(inputs) + 1)
-            inputs = np.array(min_max(inputs))
+
             # print(inputs.shape)
             images.append(inputs)
             labels.append(label)
@@ -129,42 +113,28 @@ dataset_tst = QuantumDataset(dataset_tst_np, np.array(test_labels, dtype = 'floa
 
 dldr_trn = DataLoader(dataset_trn, batch_size = BATCH_SIZE, shuffle = True)
 dldr_tst = DataLoader(dataset_tst, batch_size = BATCH_SIZE, shuffle  = True)
-dev = qml.device(QUBIT, wires=WIRES)
 
+NUM_EPOCHS = 40
 
-def net():
-    return SQNN(bz = BATCH_SIZE, rand_params=_rand_params, q_dev = dev, w=WIRES)
-
-netp = net()
+net_vhn = ATR(nc = 1, bz = BATCH_SIZE) # initializes VHN convnet; nc = input should have 1 channel
 criterion1 = nn.BCELoss()
-criterion2 = None
-optimizer = optim.Adam(netp.parameters(), lr=0.001)
+criterion2 = nn.MSELoss()
+optimizer = optim.Adam(net_vhn.parameters(), lr=0.0002, betas = (0.5, 0.999))
 
-train(criterion1, criterion2, optimizer, netp, num_epochs=2, dldr_trn = dldr_trn)
-
-print("finished training REG ATR\n")
-
-accuracy, aucpr, str_accuracy, str_aucpr = test(netp, dldr_tst=dldr_tst)
-
-print("finished testing REG ATR\n")
-
-# torch.save(netp, './saves/reg.pt')
-
-res_reg_txt = open(path_reg_sv, 'w')
-res_reg_txt.write(str_aucpr)
-res_reg_txt.write("\n")
-res_reg_txt.write(str_accuracy)
-res_reg_txt.close()
-
-img_lib = netp.sparsequanv.img_dict
+arr_epoch, vhn_aucpr_tst = train_print(criterion1, criterion2, optimizer, net_vhn, num_epochs = NUM_EPOCHS, dldr_trn = dldr_trn, dldr_tst = dldr_tst)
 
 
-imgs = []
+plt.plot(arr_epoch, vhn_aucpr_tst, label='atrp_aucpr', linestyle='--', marker='s', color='y')
 
-for img_key in img_lib.keys():
-    imgs.append(img_lib[img_key])
+plt.xlabel('Num epochs')
+plt.ylabel('ATRP (Blue), SQNN (Red)')
+plt.title('Plot of AUCPR of atrp and sqnn with respect to num of epochs')
 
-print(f"LEN {len(imgs)}")
-print(f"SHAPE {imgs[0].shape}")
+plt.legend()
 
-print(img_lib)
+# Add grid
+plt.grid(True)
+
+# Show the plot
+plt.show()
+
