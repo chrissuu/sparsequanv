@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torcheval.metrics.functional import binary_auprc
-import sklearn.metrics
 from utils import *
 
 # functions for training and testing the network
@@ -104,7 +103,6 @@ def test(net, dldr_tst):
     # print(preds_parsed)
     # print(labels_parsed)
     # print()
-    aucpr = sklearn.metrics.average_precision_score(true_labels, predicted_probs)
 
     return correct/total, binary_auprc(torch.tensor(preds_parsed).squeeze(1), 
            torch.tensor(labels_parsed), num_tasks=1).mean(), f"ACCURACY {correct / total}", f"PRAUC {binary_auprc(torch.tensor(preds_parsed).squeeze(1), torch.tensor(labels_parsed), num_tasks=1).mean()}"
