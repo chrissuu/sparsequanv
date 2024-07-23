@@ -4,6 +4,7 @@ import torch.optim as optim
 from torcheval.metrics.functional import binary_auprc
 from utils import *
 import sklearn.metrics
+import time
 
 # functions for training and testing the network
 
@@ -28,16 +29,16 @@ def train(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn):
             # forward + backward + optimize
             # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
             outputs = net(temp_inputs)
-            loss = criterion1(outputs, temp_labels.reshape(dldr_trn.batch_size,1).type(torch.float32))
+            loss = criterion1(outputs, temp_labels.reshape(dldr_trn.batch_sampler.batch_size,1).type(torch.float32))
             if criterion2: 
                 # print("SHAPES")
                 # print(curly_Nprime(net.vhn.weights).shape)
                 # print(torch.sum(temp_inputs, dim = 0).shape)
                 # print(temp_inputs.shape)
-                _temp = temp_inputs.reshape((dldr_trn.batch_size, net.WIRES, 32, 32, 50))
-                x_bar = np.zeros((dldr_trn.batch_size, net.WIRES, 32, 32, 50), dtype='float')
+                _temp = temp_inputs.reshape((dldr_trn.batch_sampler.batch_size, net.WIRES, 32, 32, 50))
+                x_bar = np.zeros((dldr_trn.batch_sampler.batch_size, net.WIRES, 32, 32, 50), dtype='float')
                 target_cnt = 0
-                for i in range(dldr_trn.batch_size):
+                for i in range(dldr_trn.batch_sampler.batch_size):
                     if int(temp_labels[i]) == 1:
                         x_bar = np.add(x_bar, _temp[i])
                         target_cnt += 1
@@ -115,7 +116,8 @@ def test(net, dldr_tst):
 def train_print(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn, dldr_tst):
     arr_epoch = [i for i in range(0, num_epochs)]
     vhn_aucpr_tst = []
-    
+    losses = []
+    inference_times = []
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         if epoch %5 == 0:
             print(f"starting epoch {epoch}")
@@ -131,6 +133,7 @@ def train_print(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn, dl
 
             # print(inputs.shape)
             temp_labels = labels
+            # print(labels)
             # zero the parameter gradients
             optimizer.zero_grad()
 
@@ -138,7 +141,7 @@ def train_print(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn, dl
             # forward + backward + optimize
             # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
             outputs = net(temp_inputs)
-            loss = criterion1(outputs, temp_labels.reshape(dldr_trn.batch_size,1).type(torch.float32))
+            loss = criterion1(outputs, temp_labels.reshape(net.bz,1).type(torch.float32))
             if criterion2: 
                 # print("SHAPES")
                 # print(curly_Nprime(net.vhn.weights).shape)
@@ -147,7 +150,7 @@ def train_print(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn, dl
                 _temp = temp_inputs.reshape((net.bz, 101, 64, 64))
                 x_bar = np.zeros((101, 64, 64), dtype='float')
                 target_cnt = 0
-                for i in range(dldr_trn.batch_size):
+                for i in range(dldr_trn.batch_sampler.batch_size):
                     if int(temp_labels[i]) == 1:
                         x_bar = np.add(x_bar, _temp[i])
                         target_cnt += 1
@@ -160,20 +163,23 @@ def train_print(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn, dl
        
             loss.backward()
             optimizer.step()
-
+            
             # print statistics
             running_loss += loss.item()
-            
+            # print(loss.item())
             # if i % 5 == 4:    # print every 2000 mini-batches
             #     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 5:.3f}')
               
             #     running_loss = 0.0
-
+        losses.append(running_loss / len(dldr_trn))
+        start = time.time()
         accuracy, aucpr, str_accuracy, str_aucpr = test(net, dldr_tst=dldr_tst)
-
+        end = time.time()
+        # print(f"average_inference_time = {end - start}")
         vhn_aucpr_tst.append(aucpr)
+        inference_times.append((end-start) / 240)
 
     
 
-
-    return arr_epoch, vhn_aucpr_tst
+    print(f"avg inf time = {sum(inference_times) / num_epochs}")
+    return losses, arr_epoch, vhn_aucpr_tst
