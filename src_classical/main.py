@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from Datacompiler import generate_compiler
 from utils import *
 from train_test import train_print
-from SparsifiedDataset import QuantumDataset
+from SparsifiedDataset import QuantumDataset, BalancedBatchSampler
 from VHN_conv_net import ATR
 
 device = (
@@ -86,7 +86,7 @@ def create_lists(path, path_hdf, BZ, IR, HARDSTOP):
                     print(f"Loaded {i+50} elt(s)")
 
 
-            inputs = torch.log10(torch.tensor(inputs) + 1)
+            
 
             # print(inputs.shape)
             images.append(inputs)
@@ -111,20 +111,27 @@ print(f"Shape of TRAIN dataset: {dataset_trn_np.shape}")
 dataset_trn = QuantumDataset(dataset_trn_np, np.array(train_labels, dtype = 'float'), hardstop = HARDSTOP, IR = IMB_RAT)
 dataset_tst = QuantumDataset(dataset_tst_np, np.array(test_labels, dtype = 'float'), hardstop = HARDSTOP_TST, IR = IMB_RAT)
 
-dldr_trn = DataLoader(dataset_trn, batch_size = BATCH_SIZE, shuffle = True)
-dldr_tst = DataLoader(dataset_tst, batch_size = BATCH_SIZE, shuffle  = True)
 
-NUM_EPOCHS = 40
+# balanced_sampler_trn = BalancedBatchSampler(dataset_trn, BATCH_SIZE)
+# balanced_sampler_tst = BalancedBatchSampler(dataset_tst, BATCH_SIZE)
+
+# dldr_trn = DataLoader(dataset_trn, batch_sampler=balanced_sampler_trn)
+# dldr_tst = DataLoader(dataset_tst, batch_sampler=balanced_sampler_tst)
+
+dldr_trn = DataLoader(dataset_trn, batch_size = BATCH_SIZE, shuffle = True)
+dldr_tst = DataLoader(dataset_tst, batch_size = BATCH_SIZE, shuffle = True )
+
+NUM_EPOCHS = 100
 
 net_vhn = ATR(nc = 1, bz = BATCH_SIZE) # initializes VHN convnet; nc = input should have 1 channel
 criterion1 = nn.BCELoss()
-criterion2 = nn.MSELoss()
-optimizer = optim.Adam(net_vhn.parameters(), lr=0.0002, betas = (0.5, 0.999))
+criterion2 = None
+optimizer = optim.Adam(net_vhn.parameters(), lr=0.0004)
 
-arr_epoch, vhn_aucpr_tst = train_print(criterion1, criterion2, optimizer, net_vhn, num_epochs = NUM_EPOCHS, dldr_trn = dldr_trn, dldr_tst = dldr_tst)
+losses, arr_epoch, vhn_aucpr_tst = train_print(criterion1, criterion2, optimizer, net_vhn, num_epochs = NUM_EPOCHS, dldr_trn = dldr_trn, dldr_tst = dldr_tst)
 
-
-plt.plot(arr_epoch, vhn_aucpr_tst, label='atrp_aucpr', linestyle='--', marker='s', color='y')
+plt.plot(arr_epoch, vhn_aucpr_tst, label='aucpr', linestyle='--', marker='s', color='y')
+plt.plot(arr_epoch, losses, label='losses', linestyle='--', marker='s', color='b')
 
 plt.xlabel('Num epochs')
 plt.ylabel('ATRP (Blue), SQNN (Red)')

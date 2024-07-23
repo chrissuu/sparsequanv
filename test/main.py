@@ -19,8 +19,9 @@ from Datacompiler import generate_compiler
 from utils import *
 from train_test import test
 from train_test import train
-from SparsifiedDataset import QuantumDataset
-
+from train_test import train_print
+from SparsifiedDataset import QuantumDataset, BalancedBatchSampler
+from VHN_conv_net import ATR
 
 device = (
     "cuda"
@@ -32,11 +33,11 @@ device = (
 
 CLOUD = False
 LINUX = False
-HARDSTOP = 4
-HARDSTOP_TST = 4
-BATCH_SIZE = 4 # MAKE SURE BATCH_SIZE ARE FACTORS OF HARDSTOP_TST AND HARDSTO
+HARDSTOP = 500
+HARDSTOP_TST = 120
+BATCH_SIZE = 20 # MAKE SURE BATCH_SIZE ARE FACTORS OF HARDSTOP_TST AND HARDSTO
 QUBIT = "lightning.qubit" 
-KERNEL = 4
+WIRES = 4
 # if not LINUX else "lightning.gpu"
 path_trn = ""
 path_tst = ""
@@ -46,7 +47,7 @@ path_vhn_sv = ""
 path_vhn_sv_wghts = ""
 path_reg_sv = ""
 ROOT = ""
-SAVE_PATH = "/Users/chrissu/Desktop/research_data/sqnn_data/"  # Data saving folder
+SAVE_PATH = "/Users/chrissu/Desktop/research_data/qnn_data/1000_/"  # Data saving folder
 if CLOUD:
     path_trn = '/data/sjayasur/greg_data/train/'
     path_tst = '/data/sjayasur/greg_data/test/'
@@ -133,7 +134,7 @@ test_labels = np.load(SAVE_PATH + "q_test_labels.npy")
 dataset_trn_np = np.load(SAVE_PATH + "q_train_dataset.npy")
 dataset_tst_np = np.load(SAVE_PATH + "q_test_dataset.npy")
 
-print(test_labels)
+# print(test_labels)
 print(f"Type of dataset: {type(dataset_trn_np)}")
 print(f"Shape of TRAIN dataset: {dataset_trn_np.shape}")
 # for i, dataset in enumerate(datasets):
@@ -148,82 +149,37 @@ dataset_tst = QuantumDataset(dataset_tst_np, np.array(test_labels, dtype = 'floa
 dldr_trn = DataLoader(dataset_trn, batch_size = BATCH_SIZE, shuffle = True)
 dldr_tst = DataLoader(dataset_tst, batch_size = BATCH_SIZE, shuffle  = True)
 
-class ATRP(nn.Module):
-    def __init__(self, nc, bz, device = None, N_filters=4, N_output = 1, ker = 4, s = 2, pad =1):
-        super(ATRP, self).__init__()
-        self.ker = ker
-        self.s = s
-        self.pad = pad
-        self.nc = nc
-        self.bz = bz
-        # self.device = device
-        self.N_filters = N_filters
-        self.N_output = N_output
-        self.conv1 = nn.Conv3d(nc, N_filters, kernel_size = (3, 3, 3), stride=(1, 2, 2), padding= (0, 1, 1))
-        self.conv2 = nn.Conv3d(N_filters, N_filters, kernel_size = (3, 3, 3), stride=(1, 2, 2), padding= (0, 1, 1))
-        
-        self.avgpool = nn.AvgPool3d(kernel_size = (6, 2, 2), stride= (1, 1, 1), padding= (0, 0, 0))
-    
+n_layers = 1   # Number of random layers
 
-        # "columns input x and output columnes"
+np.random.seed(0)           # Seed for NumPy random number generator
+tf.random.set_seed(0)       # Seed for TensorFlow random number generator
 
-        self.f2 = nn.Linear(8832,1)
-
-        self.sigmoid = nn.Sigmoid()
+#creates iters datasets with skip filters
+_rand_params = np.random.uniform(high=2 * np.pi, size=(n_layers, WIRES))
+np.save(SAVE_PATH + "params", _rand_params)
+dev = qml.device(QUBIT, wires=WIRES)
 
 
-    def forward(self, x0):
-        "image vectorization"
-        # print(x0.shape)
-        # x0.unsqueeze(1)
-        # print(x0.shape)
-        x0 = x0.reshape((self.bz, self.nc, 32, 32, 50))
-        x = self.conv1(x0)
-        x = self.avgpool(F.relu(x))
-        x = self.conv2(x)
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
+def net():
+    return ATR(nc = WIRES, bz = BATCH_SIZE, wires = WIRES)
 
-        x = self.f2(x)
-        # print(x)
-        y = self.sigmoid(x)
-        # print(y)
+netp = net()
 
-        return y
-    
+NUM_EPOCHS = 30
 
-netp = ATRP(nc = KERNEL, bz = BATCH_SIZE) # initializes REG convnet; nc = input should have 1 channel
 criterion1 = nn.BCELoss()
 criterion2 = None
-optimizer = optim.Adam(netp.parameters(), lr=0.0002)
+optimizer = optim.Adam(netp.parameters(), lr=0.0002, betas = (0.5, 0.999))
 
-NUM_EPOCHS = 50
-arr_epoch = [i for i in range(0, NUM_EPOCHS, 2)]
-arr_acc = []
-arr_aucpr = []
+arr_epoch, vhn_aucpr_tst = train_print(criterion1, criterion2, optimizer,netp, num_epochs = NUM_EPOCHS, dldr_trn = dldr_trn, dldr_tst = dldr_tst)
 
-for i in range (0, NUM_EPOCHS, 2):
-
-    train(criterion1, criterion2, optimizer, netp, num_epochs=i, dldr_trn = dldr_trn)
-
-    
-
-    accuracy, aucpr, str_accuracy, str_aucpr = test(netp, dldr_tst=dldr_tst)
-
-    netp = ATRP(nc = KERNEL, bz = BATCH_SIZE) # initializes REG convnet; nc = input should have 1 channel
-    criterion1 = nn.BCELoss()
-    criterion2 = None
-    optimizer = optim.Adam(netp.parameters(), lr=0.0002)
-    arr_acc.append(accuracy)
-    arr_aucpr.append(aucpr)
-
-    print(f"finished tasked {i}")
 
 print("finished testing REG ATR\n")
 
 import matplotlib.pyplot as plt
 
-plt.plot(arr_epoch, arr_acc, label='accuracy', linestyle='-', marker='o', color='b')
-plt.plot(arr_epoch, arr_aucpr, label='aucpr', linestyle='--', marker='s', color='r')
+
+plt.plot(arr_epoch, vhn_aucpr_tst, label='accuracy', linestyle='-', marker='o', color='b')
 
 # Add labels and title
 plt.xlabel('Num epochs')

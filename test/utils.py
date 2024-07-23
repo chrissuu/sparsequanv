@@ -20,12 +20,14 @@ def relu(x):
 def curly_N(w):
     w_min, w_max = torch.min(torch.min(torch.min(w))), torch.max(torch.max(torch.max(w)))
     reg_N = (w - w_min) / (w_max - w_min)
-    print(reg_N.min(), reg_N.max())
+    # print(reg_N.min(), reg_N.max())
     return reg_N
 
 def curly_Nprime(w):
+    # print(type(w))
     w_min, w_max = torch.min(torch.min(torch.min(w))), torch.max(torch.max(torch.max(w)))
     curly_N = (w - w_min + 1) / (w_max - w_min + 2)
+
     return curly_N
     # return (w - torch.min(w) + 1) / (torch.max(w) - torch.min(w) + 2)
 
@@ -34,23 +36,26 @@ def f_VHN(x, w):
     relu_w = relu(curly_Nprime(w))
     
     return relu_x * relu_w
-    
+
 def min_max(x):
     
     return curly_Nprime(x)
+
 class VHNLayer(nn.Module):
     """ Custom VHN layer """
-    def __init__(self, channels, img_len, img_width):
+    def __init__(self, bz, img_height, img_len, img_width):
         super().__init__()
-        self.channels, self.img_len, self.img_width = channels, img_len, img_width
-        weights = torch.Tensor(channels, img_len, img_width)
+        self.bz, self.img_height, self.img_len, self.img_width = bz, img_height, img_len, img_width
+        weights = torch.ones(size = (img_height, img_len, img_width)).float()
+        weights = min_max(weights)
         self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
-
-        # initialize weights and biases
-        nn.init.kaiming_uniform_(self.weights, a=math.sqrt(5)) # weight init
         
+        # initialize weights and biases
         
 
     def forward(self, x):
+        res = torch.tensor(np.zeros((self.bz, self.img_height, self.img_len, self.img_width)))
+        res = f_VHN(x, self.weights)
         
-        return f_VHN(x, self.weights) 
+        return res.type(torch.float32)
+    
