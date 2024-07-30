@@ -246,7 +246,7 @@ def preprocess(dev, data_root, data_save, HARDSTOP, WIRES, BZ, rand_params, hdf_
     np.save(f"{data_save}/processed_images_raw",np.array(images))
     
     for i, data in enumerate(dldr):
-        print("HERE")
+        # print("HERE")
         inputs, label = data
 
         # print(f"type of image: {type(inputs)}\n\n") 
