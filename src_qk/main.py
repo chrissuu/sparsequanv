@@ -19,7 +19,7 @@ from env_vars import ROOT_LINUX, ROOT_MAC
 from BalancingDataset import BalancingDataset
 from QKATR import QKATR, ATR
 from preprocess import preprocess
-from utils import tt_print
+from utils import tt_print, tt_print_not_preprocess
 
 
 device = (
@@ -32,15 +32,15 @@ device = (
 
 LINUX = False
 ROOT = ""
-AS_PREPROCESSING = True
+AS_PREPROCESSING = False
 
 
-NUM_EPOCHS = 500
+NUM_EPOCHS = 200
 TEST_SKIPS = 5
-BATCH_SIZE = 4
+BATCH_SIZE = 20
 WIRES = 8
-HARDSTOP_TRN = 20
-HARDSTOP_TST = 20
+HARDSTOP_TRN = 500
+HARDSTOP_TST = 120
 NLAYERS = 1
 QUBIT = "lightning.qubit" 
 RPARAMS = rand_params = np.random.uniform(high=2 * np.pi, size=(NLAYERS, WIRES))
@@ -69,6 +69,18 @@ if AS_PREPROCESSING:
     dldr_tst = preprocess(dev = dev, BZ = BATCH_SIZE, data_root = DATA_TST, WIRES = WIRES, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST, rand_params = RPARAMS)
     net = ATR(nc = WIRES, bz = BATCH_SIZE)
 
+else:
+    images = np.load(DATA_TRN_SV + "/processed_images.npy")
+    labels = np.load(DATA_TRN_SV + "/processed_images_labels.npy")
+    dataset_trn = BalancingDataset(image_list = images, label_list= labels, hardstop = HARDSTOP_TRN, IR = 1)
+    dldr_trn = DataLoader(dataset = dataset_trn, shuffle = True, batch_size = BATCH_SIZE)
+    images_test = np.load(DATA_TST_SV + "/processed_images.npy")
+    labels_test = np.load(DATA_TST_SV + "/processed_images_labels.npy")
+    dataset_tst = BalancingDataset(image_list = images_test, label_list= labels_test, hardstop = HARDSTOP_TST, IR = 1)
+    dldr_tst = DataLoader(dataset = dataset_tst, shuffle = True, batch_size = BATCH_SIZE)
+    net = ATR(nc = WIRES, bz = BATCH_SIZE)
+    
+
 
 criterion = nn.BCELoss()
 optimizer = optim.Adam(net.parameters(), lr=0.0002, betas = (0.5, 0.999))
@@ -76,7 +88,7 @@ optimizer = optim.Adam(net.parameters(), lr=0.0002, betas = (0.5, 0.999))
 configs = (criterion, optimizer, NUM_EPOCHS, TEST_SKIPS)
 data = (dldr_trn, dldr_tst)
 
-_losses, _aucpr_scores, _arr_epoch= tt_print(net, data, configs)
+_losses, _aucpr_scores, _arr_epoch= tt_print_not_preprocess(net, data, configs)
 
 losses = [_losses[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
 arr_epoch = [_arr_epoch[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]

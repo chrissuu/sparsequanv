@@ -58,6 +58,7 @@ class BalancingDataset(Dataset):
         # print(hardstop)
         self.image_list, self.label_list = balance(image_list, label_list, hardstop, IR)
         print(f"POST IMG LEN: {len(self.image_list)}, POST LABEL LEN: {len(self.label_list)}")
+        print(image_list[0].shape)
         pass
 
     def __len__(self):

@@ -229,3 +229,60 @@ def tt_print(net, data, configs):
 
     print(f"avg inf time = {sum(inference_times) / num_epochs}")
     return losses, aucpr_tst, arr_epoch
+
+def tt_print_not_preprocess(net, data, configs):
+    (criterion1, optimizer, num_epochs, skip) = (configs)
+    (dldr_trn, dldr_tst) = (data)
+
+    arr_epoch = [i for i in range(0, num_epochs)]
+    aucpr_tst = []
+    losses = []
+    inference_times = []
+    for epoch in range(num_epochs):  # loop over the dataset multiple times
+        if epoch %5 == 0:
+            print(f"starting epoch {epoch}")
+        running_loss = 0.0
+        for i, data in enumerate(dldr_trn, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            
+            inputs, labels = data
+            # print(f"Inputs shape: {inputs.shape}")
+            # print(f"Inputs shape post: {inputs.shape}")
+
+            # print(inputs.shape)
+            temp_labels = labels
+            # print(labels)
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # print(inputs)
+            # forward + backward + optimize
+            # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
+            outputs = net(inputs)
+            loss = criterion1(outputs, temp_labels.reshape(net.bz,1).type(torch.float32))
+        
+            # print("netvhn", net.vhn.weights.shape)
+            # print(curly_N(torch.sum(inputs, dim = 0) / dldr.batch_size).shape)
+       
+            loss.backward()
+            optimizer.step()
+            
+            # print statistics
+            running_loss += loss.item()
+            # print(loss.item())
+            # if i % 5 == 4:    # print every 2000 mini-batches
+            #     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 5:.3f}')
+              
+            #     running_loss = 0.0
+        losses.append(running_loss / len(dldr_trn))
+        start = time.time()
+        accuracy, aucpr, str_accuracy, str_aucpr = test(net, dldr_tst=dldr_tst)
+        end = time.time()
+        # print(f"average_inference_time = {end - start}")
+        aucpr_tst.append(aucpr)
+        inference_times.append((end-start) / len(dldr_tst))
+
+    
+
+    print(f"avg inf time = {sum(inference_times) / num_epochs}")
+    return losses, aucpr_tst, arr_epoch
