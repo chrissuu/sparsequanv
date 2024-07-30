@@ -13,9 +13,8 @@ from torcheval.metrics.functional import binary_auprc
 import matplotlib.pyplot as plt
 from utils import VHNLayer
 
-
 class ATR(nn.Module):
-    def __init__(self, nc, bz, device = None, N_filters=4, N_output = 1, ker = 4, s = 2, pad =1):
+    def __init__(self, nc,bz, device = None, N_filters=4, N_output = 1, ker = 4, s = 2, pad =1):
         super(ATR, self).__init__()
         self.ker = ker
         self.s = s
@@ -25,7 +24,7 @@ class ATR(nn.Module):
         # self.device = device
         self.N_filters = N_filters
         self.N_output = N_output
- 
+        self.vhn = VHNLayer(20, 101, 64, 64)
         self.conv1 = nn.Conv3d(nc, N_filters, kernel_size = (3, 3, 3), stride=(1, 2, 2), padding= (0, 1, 1))
         self.conv2 = nn.Conv3d(N_filters, N_filters, kernel_size = (3, 3, 3), stride=(1, 2, 2), padding= (0, 1, 1))
         self.conv3 = nn.Conv3d(N_filters, N_filters, kernel_size = (3, 3, 3), stride=(1, 2, 2), padding= (0, 1, 1))
@@ -44,7 +43,8 @@ class ATR(nn.Module):
         "image vectorization"
         # print(x0.shape)
         # print(x0.shape)
-        x0 = x0.reshape((self.bz, 101, 64, 64))
+        x0 = x0.reshape((20, 101, 64, 64))
+        x0 = self.vhn.forward(x0)
         x = self.conv1(x0.unsqueeze(1))
         x = self.avgpool(F.relu(x))
         x = self.conv2(x)
