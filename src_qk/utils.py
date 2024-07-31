@@ -243,6 +243,7 @@ def tt_print_not_preprocess(net, data, configs):
             print(f"starting epoch {epoch}")
         running_loss = 0.0
         for i, data in enumerate(dldr_trn, 0):
+            # print(data)
             # get the inputs; data is a list of [inputs, labels]
             
             inputs, labels = data
