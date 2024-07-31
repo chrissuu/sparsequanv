@@ -278,3 +278,97 @@ def preprocess(dev, data_root, data_save, HARDSTOP, WIRES, BZ, rand_params, hdf_
     dataset_res = BalancingDataset(image_list = images, label_list = labels, hardstop = HARDSTOP, IR = IR)
     dldr_ret = DataLoader(dataset = dataset_res, shuffle = True, batch_size = BZ)
     return dldr_ret
+
+
+
+def preprocess_resized(data_root, data_save, HARDSTOP, BZ, hdf_data_path = 'DL_info/chip_info/cube_raw', IR = 1):
+    n_classes = 2
+    file_list = [[] for clas in range(n_classes)]
+    
+    #print('Allocating HDFs to train/valid/test...')
+    
+    for filename in os.listdir(data_root):
+        if not filename.endswith('.hdf'):
+            continue
+
+        # Extract the label using 'label_scheme' identifier
+        label = int(int(filename.split('_')[3]) > 0)  # 0 = clutter (not manmade); 1 = target (manmade)   
+        file_list[label].append(filename)
+
+    print(f"clutter len: {len(file_list[0])}")
+    print(f"target len: {len(file_list[1])}")     
+
+    data_root = data_root
+    n_classes = n_classes
+
+    "balance by class"
+    hdf_path = hdf_data_path
+    batch_size = BZ
+    bsz_by_class = int(batch_size // 2)
+    chip_n_rows = 64
+    chip_n_cols = 64
+    chip_n_dpth = 101
+    
+    chip_shape = (chip_n_rows, chip_n_cols, chip_n_dpth)
+    
+    images_list = []
+    labels_list = []
+    
+
+    for file in file_list[0]:
+        data = readHDF(file_name = file, hdf_path=hdf_path, data_root = data_root)
+        data = chip_center(data, batch_size = BZ)
+        images_list.append(data)
+        labels_list.append(0)
+
+    for file in file_list[1]:
+        data = readHDF(file_name = file, hdf_path=hdf_path, data_root = data_root)
+        data = chip_center(data, batch_size = BZ)
+        images_list.append(data)
+        labels_list.append(1)
+    # print(images_list[0].shape)
+    # for label in labels_list:
+    #     print (label)
+    # # TESTED UP TO HERE
+    # print(images_list)
+
+    dataset = BalancingDataset(image_list = images_list, label_list = labels_list, hardstop= HARDSTOP, IR=IR)
+    dldr = DataLoader(dataset = dataset, batch_size = 1, shuffle = True)
+    images = []
+    labels = []
+    
+    # print(labels)
+
+    
+    for i, data in enumerate(dldr):
+        # print("HERE")
+        inputs, label = data
+
+        # print(f"type of image: {type(inputs)}\n\n") 
+        if i < 2 * HARDSTOP:
+            
+            if HARDSTOP != float('inf'):
+                
+                print(f"Loaded {i+1} elt(s)")
+            
+            else:
+                
+                if i%50 == 0:
+                    print(f"Loaded {i+1} elt(s)")
+
+            inputs = torch.log10(inputs + 1)
+            inputs = np.array(min_max(inputs))
+            # print(inputs.shape)
+            inputs = np.resize(inputs, (1, 32, 32, 50))
+            # print(inputs.shape)
+            images.append(inputs)
+            labels.append(label)
+
+    # print(len(images))
+    # print(len(labels))
+    # print(len(images))
+    # print(len(labels))
+    # print(images[0].shape)
+    dataset_res = BalancingDataset(image_list = images, label_list = labels, hardstop = HARDSTOP, IR = IR)
+    dldr_ret = DataLoader(dataset = dataset_res, shuffle = True, batch_size = BZ)
+    return dldr_ret
