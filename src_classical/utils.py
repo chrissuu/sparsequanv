@@ -27,7 +27,7 @@ def relu(x):
 def curly_N(w):
     w_min, w_max = torch.min(torch.min(torch.min(w))), torch.max(torch.max(torch.max(w)))
     reg_N = (w - w_min) / (w_max - w_min)
-    print(reg_N.min(), reg_N.max())
+    # print(reg_N.min(), reg_N.max())
     return reg_N
 
 def curly_Nprime(w):
@@ -45,6 +45,7 @@ def f_VHN(x, w):
 def min_max(x):
     
     return curly_Nprime(x)
+
 class VHNLayer(nn.Module):
     """ Custom VHN layer """
     def __init__(self, bz, img_height, img_len, img_width):
@@ -58,7 +59,6 @@ class VHNLayer(nn.Module):
         
 
     def forward(self, x):
-        res = torch.tensor(np.zeros((self.bz, self.img_height, self.img_len, self.img_width)))
         
         res = f_VHN(x, self.weights)
 
@@ -107,13 +107,7 @@ def test(net, dldr_tst):
     
     # print(preds_parsed)
     # print(labels_parsed)
-    # print()
-    # print(labels_parsed)
-    # print(preds_parsed)
-    # print(preds_parsed)
-    # print(labels_parsed)
-    print(preds_parsed)
-    print(labels_parsed)
+  
     aucpr = sklearn.metrics.average_precision_score(labels_parsed, preds_parsed)
 
     return correct/total, aucpr, f"ACCURACY {correct / total}", f"PRAUC {aucpr}"
