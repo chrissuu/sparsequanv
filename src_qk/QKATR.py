@@ -24,6 +24,7 @@ class ATR(nn.Module):
         self.pad = pad
         self.nc = nc
         self.bz = bz
+        # print(nc)
         # self.device = device
         self.N_filters = N_filters
         self.N_output = N_output
@@ -47,6 +48,7 @@ class ATR(nn.Module):
         # print(x0.shape)
         # x0.unsqueeze(1)
         # print(x0.shape)
+        # print(self.nc)
         x0 = x0.reshape((self.bz, self.nc, 32, 32, 50)).float()
         x = self.conv1(x0)
         x = self.avgpool(F.relu(x))

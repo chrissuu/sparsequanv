@@ -17,7 +17,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from env_vars import ROOT_LINUX, ROOT_MAC
 from BalancingDataset import BalancingDataset
-from VHN_conv_net import ATR
+from VHN_conv_net import ATR_A, ATR_B
 from preprocess import preprocess
 from utils import tt_print
 
@@ -30,13 +30,12 @@ device = (
     else "cpu"
 )
 
+print(device)
 LINUX = False
 ROOT = ""
-AS_PREPROCESSING = True
 
-
-NUM_EPOCHS = 100
-TEST_SKIPS = 5
+NUM_EPOCHS = 50
+TEST_SKIPS = 1
 BATCH_SIZE = 20
 HARDSTOP_TRN = 500
 HARDSTOP_TST = 120
@@ -58,16 +57,18 @@ net = None
 dldr_trn = None
 dldr_tst = None
 
-if AS_PREPROCESSING:
-    
-    dldr_trn = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
-    dldr_tst = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
-    net = ATR(nc = 1, bz = 20)
+#############################
+#############################
+#############################
+
+dldr_trn = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
+dldr_tst = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
+net = ATR_A(nc = 1, bz = 20)
 
 criterion1 = nn.BCELoss()
 criterion2 = None
 
-optimizer = optim.Adam(net.parameters(), lr=0.0002, betas = (0.9, 0.999))
+optimizer = optim.Adam(net.parameters(), lr=0.002, betas = (0.9, 0.999))
 
 configs = (criterion1, criterion2, optimizer, NUM_EPOCHS, TEST_SKIPS)
 data = (dldr_trn, dldr_tst)
@@ -78,10 +79,38 @@ losses = [_losses[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
 arr_epoch = [_arr_epoch[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
 vhn_aucpr_tst = [_aucpr_scores[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
 
+#############################
+#############################
+#############################
+
+dldr_trn_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
+dldr_tst_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
+net_cmp = ATR_B(nc = 1, bz = 20)
+
+criterion1_cmp = nn.BCELoss()
+criterion2_cmp = None
+
+optimizer_cmp = optim.Adam(net_cmp.parameters(), lr=0.002, betas = (0.9, 0.999))
+
+configs_cmp = (criterion1_cmp, criterion2_cmp, optimizer_cmp, NUM_EPOCHS, TEST_SKIPS)
+data_cmp = (dldr_trn_cmp, dldr_tst_cmp)
+
+_losses_cmp, _aucpr_scores_cmp, _arr_epoch_cmp= tt_print(net_cmp, data_cmp, configs_cmp)
+
+losses_cmp = [_losses_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+arr_epoch_cmp = [_arr_epoch_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+vhn_aucpr_tst_cmp = [_aucpr_scores_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+
+#############################
+#############################
+#############################
+
 import matplotlib.pyplot as plt
 
-plt.plot(arr_epoch, vhn_aucpr_tst, label='aucpr', linestyle='-', marker='o', color='b')
-plt.plot(arr_epoch, losses, label='loss', linestyle='-', marker='o', color='r')
+plt.plot(arr_epoch, vhn_aucpr_tst, label='AUCPR CNN A', linestyle='-', marker='o', color='b')
+plt.plot(arr_epoch, losses, label='Loss CNN A', linestyle='-', marker='o', color='r')
+plt.plot(arr_epoch, vhn_aucpr_tst_cmp, label='AUCPR CNN B', linestyle='-', marker='o', color='y')
+plt.plot(arr_epoch, losses_cmp, label='Loss CNN B', linestyle='-', marker='o', color='g')
 # plt.plot(arr_epoch, deep_aucpr_tst, label='deep', linestyle='--', marker='s', color='r')
 
 # Add labels and title

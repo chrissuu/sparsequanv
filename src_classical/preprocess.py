@@ -157,7 +157,7 @@ def preprocess(data_root, data_save, HARDSTOP, BZ, hdf_data_path = 'DL_info/chip
     
     # print(labels)
 
-    np.save(f"{data_save}/processed_images_raw",np.array(images))
+    # np.save(f"{data_save}/processed_images_raw",np.array(images))
     
     for i, data in enumerate(dldr):
         # print("HERE")
@@ -183,8 +183,6 @@ def preprocess(data_root, data_save, HARDSTOP, BZ, hdf_data_path = 'DL_info/chip
 
     # print(len(images))
     # print(len(labels))
-    np.save(f"{data_save}/processed_images",np.array(images))
-    np.save(f"{data_save}/processed_images_labels",np.array(labels))
     # print(len(images))
     # print(len(labels))
     dataset_res = BalancingDataset(image_list = images, label_list = labels, hardstop = HARDSTOP, IR = IR)
