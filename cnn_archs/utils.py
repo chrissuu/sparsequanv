@@ -252,8 +252,8 @@ def tt_print_not_preprocess(net, data, configs):
         aucpr_tst.append(aucpr)
         inference_times.append((end-start) / len(dldr_tst))
 
-        macs = profile_macs(net, save_inputs)
-        print(f"macs: {macs}")
+    macs = profile_macs(net, save_inputs)
+    print(f"macs: {macs}")
 
     print(f"avg inf time = {sum(inference_times) / num_epochs}")
     return losses, aucpr_tst, arr_epoch
