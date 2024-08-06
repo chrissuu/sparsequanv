@@ -27,7 +27,7 @@ from torch.utils.data import Dataset, DataLoader
 from env_vars import ROOT_LINUX, ROOT_MAC
 from BalancingDataset import BalancingDataset
 from env_vars import ROOT_LINUX, ROOT_MAC
-from QKATR import ATR
+from QKATR import ATR_C
 from preprocess import preprocess, preprocess_resized
 from utils import tt_print, tt_print_not_preprocess
 
@@ -82,7 +82,7 @@ if AS_PREPROCESSING:
     
     dldr_trn = preprocess(dev = dev, BZ = BATCH_SIZE, data_root = DATA_TRN, WIRES = WIRES, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN, rand_params = RPARAMS)
     dldr_tst = preprocess(dev = dev, BZ = BATCH_SIZE, data_root = DATA_TST, WIRES = WIRES, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST, rand_params = RPARAMS)
-    net = ATR(nc = WIRES, bz = BATCH_SIZE)
+    net = ATR_C(nc = WIRES, bz = BATCH_SIZE)
 
 else:
     images = np.load(DATA_TRN_SV + "/processed_images.npy")
@@ -93,7 +93,7 @@ else:
     labels_test = np.load(DATA_TST_SV + "/processed_images_labels.npy")
     dataset_tst = BalancingDataset(image_list = images_test, label_list= labels_test, hardstop = HARDSTOP_TST, IR = 1)
     dldr_tst = DataLoader(dataset = dataset_tst, shuffle = True, batch_size = BATCH_SIZE)
-    net = ATR(nc = WIRES, bz = BATCH_SIZE)
+    net = ATR_C(nc = WIRES, bz = BATCH_SIZE)
 
 
 # dldr_trn_cmp = preprocess_resized(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)

@@ -18,6 +18,7 @@ from torcheval.metrics.functional import binary_auprc
 from utils import *
 import time
 import sklearn.metrics
+from torchprofile import profile_macs
 
 def relu(x):
     _relu = nn.ReLU()
@@ -27,7 +28,7 @@ def relu(x):
 def curly_N(w):
     w_min, w_max = torch.min(torch.min(torch.min(w))), torch.max(torch.max(torch.max(w)))
     reg_N = (w - w_min) / (w_max - w_min)
-    print(reg_N.min(), reg_N.max())
+    # print(reg_N.min(), reg_N.max())
     return reg_N
 
 def curly_Nprime(w):
@@ -45,77 +46,25 @@ def f_VHN(x, w):
 def min_max(x):
     
     return curly_Nprime(x)
+
 class VHNLayer(nn.Module):
     """ Custom VHN layer """
-    def __init__(self, channels, img_len, img_width):
+    def __init__(self, bz, img_height, img_len, img_width):
         super().__init__()
-        self.channels, self.img_len, self.img_width = channels, img_len, img_width
-        weights = torch.Tensor(channels, img_len, img_width)
+        self.bz, self.img_height, self.img_len, self.img_width = bz, img_height, img_len, img_width
+        weights = torch.ones(size = (img_height, img_len, img_width)).float()
+        weights = min_max(weights)
         self.weights = nn.Parameter(weights)  # nn.Parameter is a Tensor that's a module parameter.
-
-        # initialize weights and biases
-        nn.init.kaiming_uniform_(self.weights, a=math.sqrt(5)) # weight init
         
+        # initialize weights and biases
         
 
     def forward(self, x):
         
-        return f_VHN(x, self.weights) 
-    
+        res = f_VHN(x, self.weights)
 
-def train(criterion1, criterion2, optimizer, net, num_epochs, dldr_trn):
-    for epoch in range(num_epochs):  # loop over the dataset multiple times
-        running_loss = 0.0
-        for i, data in enumerate(dldr_trn, 0):
-            # get the inputs; data is a list of [inputs, labels]
-            
-            inputs, labels = data
-            # print(f"Inputs shape: {inputs.shape}")
-            
-            temp_inputs = (torch.log10(inputs + 1)).float().squeeze(0)
-            # print(f"Inputs shape post: {inputs.shape}")
+        return res.type(torch.float32)
 
-            # print(inputs.shape)
-            temp_labels = labels
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # print(inputs)
-            # forward + backward + optimize
-            # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
-            outputs = net(temp_inputs)
-            loss = criterion1(outputs, temp_labels.reshape(dldr_trn.batch_sampler.batch_size,1).type(torch.float32))
-            if criterion2: 
-                # print("SHAPES")
-                # print(curly_Nprime(net.vhn.weights).shape)
-                # print(torch.sum(temp_inputs, dim = 0).shape)
-                # print(temp_inputs.shape)
-                _temp = temp_inputs.reshape((dldr_trn.batch_sampler.batch_size, net.WIRES, 32, 32, 50))
-                x_bar = np.zeros((dldr_trn.batch_sampler.batch_size, net.WIRES, 32, 32, 50), dtype='float')
-                target_cnt = 0
-                for i in range(dldr_trn.batch_sampler.batch_size):
-                    if int(temp_labels[i]) == 1:
-                        x_bar = np.add(x_bar, _temp[i])
-                        target_cnt += 1
-                x_bar /= target_cnt
-                loss += criterion2(curly_Nprime(net.vhn.weights), curly_N(x_bar.float()))
-                loss = loss.float()
-                
-            # print("netvhn", net.vhn.weights.shape)
-            # print(curly_N(torch.sum(inputs, dim = 0) / dldr.batch_size).shape)
-       
-            loss.backward()
-            optimizer.step()
-
-            # print statistics
-            running_loss += loss.item()
-            
-            # if i % 5 == 4:    # print every 2000 mini-batches
-            #     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 5:.3f}')
-              
-            #     running_loss = 0.0
-
-    return
 
 def test(net, dldr_tst):
     preds = []
@@ -127,11 +76,12 @@ def test(net, dldr_tst):
         for i, data in enumerate(dldr_tst,0):
             inputs, label = data
             
-            temp_inputs = torch.log10(inputs + 1).float().squeeze(0)
             # print(inputs.shape)
             temp_label = label
+            inputs = inputs.float().squeeze(0)
+
             # calculate outputs by running images through the 
-            output = net(temp_inputs)
+            output = net(inputs)
 
             preds.append(output.tolist())
             labels.append(temp_label.tolist())
@@ -159,11 +109,7 @@ def test(net, dldr_tst):
     
     # print(preds_parsed)
     # print(labels_parsed)
-    # print()
-    # print(labels_parsed)
-    # print(preds_parsed)
-    # print(preds_parsed)
-    # print(labels_parsed)
+  
     aucpr = sklearn.metrics.average_precision_score(labels_parsed, preds_parsed)
 
     return correct/total, aucpr, f"ACCURACY {correct / total}", f"PRAUC {aucpr}"
@@ -172,16 +118,17 @@ def test(net, dldr_tst):
 # configs = (criterion, optimizer, NUM_EPOCHS, TEST_SKIPS)
 # data = (dldr_trn, dldr_tst)
 def tt_print(net, data, configs):
-    (criterion1, optimizer, num_epochs, skip) = (configs)
+    (criterion1, criterion2, optimizer, num_epochs, skip) = (configs)
     (dldr_trn, dldr_tst) = (data)
 
     arr_epoch = [i for i in range(0, num_epochs)]
     aucpr_tst = []
     losses = []
     inference_times = []
+    save_inputs = None
     for epoch in range(num_epochs):  # loop over the dataset multiple times
-        if epoch %5 == 0:
-            print(f"starting epoch {epoch}")
+        # if epoch %5 == 0:
+        #     print(f"starting epoch {epoch}")
         running_loss = 0.0
         for i, data in enumerate(dldr_trn, 0):
             # get the inputs; data is a list of [inputs, labels]
@@ -191,7 +138,8 @@ def tt_print(net, data, configs):
             
             # temp_inputs = (torch.log10(inputs + 1)).float().squeeze(0)
             # print(f"Inputs shape post: {inputs.shape}")
-
+            inputs = inputs.float().squeeze(0)
+            save_inputs = inputs
             # print(inputs.shape)
             temp_labels = labels
             # print(labels)
@@ -203,7 +151,22 @@ def tt_print(net, data, configs):
             # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
             outputs = net(inputs)
             loss = criterion1(outputs, temp_labels.reshape(net.bz,1).type(torch.float32))
-        
+            if criterion2: 
+                # print("SHAPES")
+                # print(curly_Nprime(net.vhn.weights).shape)
+                # print(torch.sum(temp_inputs, dim = 0).shape)
+                # print(temp_inputs.shape)
+                _temp = inputs.reshape((net.bz, 101, 64, 64))
+                x_bar = np.zeros((101, 64, 64), dtype='float')
+                target_cnt = 0
+                for i in range(dldr_trn.batch_sampler.batch_size):
+                    if int(temp_labels[i]) == 1:
+                        x_bar = np.add(x_bar, _temp[i])
+                        target_cnt += 1
+                x_bar /= target_cnt
+                loss += criterion2(curly_Nprime(net.vhn.weights), curly_N(x_bar.float()))
+                loss = loss.float()
+
             # print("netvhn", net.vhn.weights.shape)
             # print(curly_N(torch.sum(inputs, dim = 0) / dldr.batch_size).shape)
        
@@ -225,10 +188,14 @@ def tt_print(net, data, configs):
         aucpr_tst.append(aucpr)
         inference_times.append((end-start) / len(dldr_tst))
 
-    
+
+    macs = profile_macs(net, save_inputs)
+    print(f"macs: {macs}")
 
     print(f"avg inf time = {sum(inference_times) / num_epochs}")
     return losses, aucpr_tst, arr_epoch
+
+
 
 def tt_print_not_preprocess(net, data, configs):
     (criterion1, optimizer, num_epochs, skip) = (configs)
@@ -238,15 +205,17 @@ def tt_print_not_preprocess(net, data, configs):
     aucpr_tst = []
     losses = []
     inference_times = []
+    save_inputs = None
     for epoch in range(num_epochs):  # loop over the dataset multiple times
-        if epoch %5 == 0:
-            print(f"starting epoch {epoch}")
+        # if epoch %5 == 0:
+        #     print(f"starting epoch {epoch}")
         running_loss = 0.0
         for i, data in enumerate(dldr_trn, 0):
             # print(data)
             # get the inputs; data is a list of [inputs, labels]
             
             inputs, labels = data
+            save_inputs = inputs
             # print(f"Inputs shape: {inputs.shape}")
             # print(f"Inputs shape post: {inputs.shape}")
 
@@ -264,7 +233,7 @@ def tt_print_not_preprocess(net, data, configs):
         
             # print("netvhn", net.vhn.weights.shape)
             # print(curly_N(torch.sum(inputs, dim = 0) / dldr.batch_size).shape)
-       
+
             loss.backward()
             optimizer.step()
             
@@ -283,7 +252,8 @@ def tt_print_not_preprocess(net, data, configs):
         aucpr_tst.append(aucpr)
         inference_times.append((end-start) / len(dldr_tst))
 
-    
+        macs = profile_macs(net, save_inputs)
+        print(f"macs: {macs}")
 
     print(f"avg inf time = {sum(inference_times) / num_epochs}")
     return losses, aucpr_tst, arr_epoch

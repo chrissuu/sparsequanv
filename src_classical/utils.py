@@ -133,9 +133,9 @@ def tt_print(net, data, configs):
             inputs, labels = data
             # print(f"Inputs shape: {inputs.shape}")
             
-            temp_inputs = (torch.log10(inputs + 1)).float().squeeze(0)
+            # temp_inputs = (torch.log10(inputs + 1)).float().squeeze(0)
             # print(f"Inputs shape post: {inputs.shape}")
-
+            inputs = inputs.float().squeeze(0)
             # print(inputs.shape)
             temp_labels = labels
             # print(labels)
@@ -145,14 +145,14 @@ def tt_print(net, data, configs):
             # print(inputs)
             # forward + backward + optimize
             # print(f"TEMP INPUTS TYPE: {type(temp_inputs.item())}")
-            outputs = net(temp_inputs)
+            outputs = net(inputs)
             loss = criterion1(outputs, temp_labels.reshape(net.bz,1).type(torch.float32))
             if criterion2: 
                 # print("SHAPES")
                 # print(curly_Nprime(net.vhn.weights).shape)
                 # print(torch.sum(temp_inputs, dim = 0).shape)
                 # print(temp_inputs.shape)
-                _temp = temp_inputs.reshape((net.bz, 101, 64, 64))
+                _temp = inputs.reshape((net.bz, 101, 64, 64))
                 x_bar = np.zeros((101, 64, 64), dtype='float')
                 target_cnt = 0
                 for i in range(dldr_trn.batch_sampler.batch_size):

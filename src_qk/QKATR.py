@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from SparseQuanvLayer import SparseQuanvLayer
 
-class ATR(nn.Module):
+class ATR_C(nn.Module):
     def __init__(self, nc, bz, device = None, N_filters=4, N_output = 1, ker = 4, s = 2, pad =1):
-        super(ATR, self).__init__()
+        super(ATR_C, self).__init__()
         self.ker = ker
         self.s = s
         self.pad = pad
@@ -67,7 +67,7 @@ class ATR(nn.Module):
 
 class QKATR(nn.Module):
     def __init__(self, nc, bz, rand_params, wires, q_dev, N_filters=4, PRINT = True):
-        super(ATR, self).__init__()
+        super(QKATR, self).__init__()
         self.nc = nc
         self.N_filters = N_filters
         self.bz = bz

@@ -1,13 +1,13 @@
 # sparsequanv
-a repo storing code for only the sparse quanvolutional preprocessing layer for 3d sas data cubes
+A repo storing code for only the sparse quanvolutional preprocessing layer for 3D sas data cubes
 
 #### repo organization
 
-this repo is organized into the quantum and classical counterparts.
+This repo is organized into the quantum and classical counterparts.
 
-the classical counterpart is fairly straightforward so we glance over it.
+The classical counterpart is fairly straightforward so we glance over it.
 
-the quantum counterpart has two "philosophies" on approaching ML training:
+The quantum counterpart has two "philosophies" on approaching ML training:
 
 1. Either as a preprocessing operation
 2. Or as a quantum convolutional layer

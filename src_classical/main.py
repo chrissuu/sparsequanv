@@ -61,46 +61,52 @@ dldr_tst = None
 #############################
 #############################
 
-dldr_trn = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
-dldr_tst = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
-net = ATR_A(nc = 1, bz = 20)
+def CNN_A():
 
-criterion1 = nn.BCELoss()
-criterion2 = None
+    dldr_trn = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
+    dldr_tst = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
+    net = ATR_A(nc = 1, bz = 20)
 
-optimizer = optim.Adam(net.parameters(), lr=0.002, betas = (0.9, 0.999))
+    criterion1 = nn.BCELoss()
+    criterion2 = None
 
-configs = (criterion1, criterion2, optimizer, NUM_EPOCHS, TEST_SKIPS)
-data = (dldr_trn, dldr_tst)
+    optimizer = optim.Adam(net.parameters(), lr=0.002, betas = (0.9, 0.999))
 
-_losses, _aucpr_scores, _arr_epoch= tt_print(net, data, configs)
+    configs = (criterion1, criterion2, optimizer, NUM_EPOCHS, TEST_SKIPS)
+    data = (dldr_trn, dldr_tst)
 
-losses = [_losses[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
-arr_epoch = [_arr_epoch[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
-vhn_aucpr_tst = [_aucpr_scores[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+    _losses, _aucpr_scores, _arr_epoch= tt_print(net, data, configs)
+
+    losses = [_losses[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+    arr_epoch = [_arr_epoch[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+    vhn_aucpr_tst = [_aucpr_scores[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+
+    return losses, vhn_aucpr_tst, arr_epoch
 
 #############################
 #############################
 #############################
+def CNN_B():
+        
+    dldr_trn_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
+    dldr_tst_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
+    net_cmp = ATR_B(nc = 1, bz = 20)
 
-dldr_trn_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TRN, data_save = DATA_TRN_SV, HARDSTOP = HARDSTOP_TRN)
-dldr_tst_cmp = preprocess(BZ = BATCH_SIZE, data_root = DATA_TST, data_save = DATA_TST_SV, HARDSTOP = HARDSTOP_TST)
-net_cmp = ATR_B(nc = 1, bz = 20)
+    criterion1_cmp = nn.BCELoss()
+    criterion2_cmp = None
 
-criterion1_cmp = nn.BCELoss()
-criterion2_cmp = None
+    optimizer_cmp = optim.Adam(net_cmp.parameters(), lr=0.002, betas = (0.9, 0.999))
 
-optimizer_cmp = optim.Adam(net_cmp.parameters(), lr=0.002, betas = (0.9, 0.999))
+    configs_cmp = (criterion1_cmp, criterion2_cmp, optimizer_cmp, NUM_EPOCHS, TEST_SKIPS)
+    data_cmp = (dldr_trn_cmp, dldr_tst_cmp)
 
-configs_cmp = (criterion1_cmp, criterion2_cmp, optimizer_cmp, NUM_EPOCHS, TEST_SKIPS)
-data_cmp = (dldr_trn_cmp, dldr_tst_cmp)
+    _losses_cmp, _aucpr_scores_cmp, _arr_epoch_cmp= tt_print(net_cmp, data_cmp, configs_cmp)
 
-_losses_cmp, _aucpr_scores_cmp, _arr_epoch_cmp= tt_print(net_cmp, data_cmp, configs_cmp)
+    losses_cmp = [_losses_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+    arr_epoch_cmp = [_arr_epoch_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
+    vhn_aucpr_tst_cmp = [_aucpr_scores_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
 
-losses_cmp = [_losses_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
-arr_epoch_cmp = [_arr_epoch_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
-vhn_aucpr_tst_cmp = [_aucpr_scores_cmp[i] for i in range(0, NUM_EPOCHS, TEST_SKIPS)]
-
+    return losses_cmp, vhn_aucpr_tst_cmp, arr_epoch_cmp
 #############################
 #############################
 #############################
@@ -109,8 +115,8 @@ import matplotlib.pyplot as plt
 
 plt.plot(arr_epoch, vhn_aucpr_tst, label='AUCPR CNN A', linestyle='-', marker='o', color='b')
 plt.plot(arr_epoch, losses, label='Loss CNN A', linestyle='-', marker='o', color='r')
-plt.plot(arr_epoch, vhn_aucpr_tst_cmp, label='AUCPR CNN B', linestyle='-', marker='o', color='y')
-plt.plot(arr_epoch, losses_cmp, label='Loss CNN B', linestyle='-', marker='o', color='g')
+# plt.plot(arr_epoch, vhn_aucpr_tst_cmp, label='AUCPR CNN B', linestyle='-', marker='o', color='y')
+# plt.plot(arr_epoch, losses_cmp, label='Loss CNN B', linestyle='-', marker='o', color='g')
 # plt.plot(arr_epoch, deep_aucpr_tst, label='deep', linestyle='--', marker='s', color='r')
 
 # Add labels and title
