@@ -7,7 +7,7 @@ This repo is organized into the quantum and classical counterparts.
 
 The classical counterpart is fairly straightforward so we glance over it.
 
-The quantum counterpart has two "philosophies" on approaching ML training:
+The quantum counterpart has two "philosophies" when approaching ML training:
 
 1. Either as a preprocessing operation
 2. Or as a quantum convolutional layer
